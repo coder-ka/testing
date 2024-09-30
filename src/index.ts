@@ -3,30 +3,36 @@ export type DoResult = {
 };
 export type TestResult = DoResult & {
   skipped: boolean;
-  description?: string;
 };
 export type Test = {
   skipped: boolean;
-  do(test: (param: {}) => Promise<DoResult | void>): Promise<TestResult>;
   skip(): Test;
+  content: () => Promise<DoResult | void>;
+  do(test: (param: {}) => Promise<DoResult | void>): Test;
+  description?: string;
 };
 export function test(description?: string): Test {
   return {
+    description,
     skipped: false,
-    async do(test) {
-      if (this.skipped)
+    content: async () => {},
+    do(test) {
+      this.content = async () => {
+        if (this.skipped)
+          return {
+            skipped: true,
+            children: [],
+          };
+
+        const result = await test({});
+
         return {
-          skipped: true,
-          children: [],
+          ...(result || { children: [] }),
+          skipped: this.skipped,
         };
-
-      const result = await test({});
-
-      return {
-        ...(result || { children: [] }),
-        skipped: this.skipped,
-        description,
       };
+
+      return this;
     },
     skip() {
       this.skipped = true;
